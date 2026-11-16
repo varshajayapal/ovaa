@@ -45,7 +45,19 @@ public class TheftOverwriteProvider extends ContentProvider {
 
     @Override
     public ParcelFileDescriptor openFile(@NonNull Uri uri, @NonNull String mode) throws FileNotFoundException {
-        File file = new File(Environment.getExternalStorageDirectory(), uri.getLastPathSegment());
-        return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_WRITE);
+        File baseDir = Environment.getExternalStorageDirectory();
+        String segment = uri.getLastPathSegment();
+        if (segment == null) {
+            throw new FileNotFoundException("Invalid URI segment");
+        }
+        File requestedFile = new File(baseDir, segment);
+        try {
+            if (!requestedFile.getCanonicalPath().startsWith(baseDir.getCanonicalPath() + File.separator)) {
+                throw new SecurityException("Path traversal attempt blocked: " + uri);
+            }
+        } catch (java.io.IOException e) {
+            throw new FileNotFoundException("Unable to resolve path: " + uri);
+        }
+        return ParcelFileDescriptor.open(requestedFile, ParcelFileDescriptor.MODE_READ_WRITE);
     }
 }
